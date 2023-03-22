@@ -1,0 +1,105 @@
+#Disable options??
+- name: install docker and config
+  hosts: all
+  become: true
+  tasks:
+    - name: update all packages
+      yum:
+        name: '*'
+        state: latest
+
+    - name: ensure repository key is installed
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: ensure docker registry is available
+      apt_repository: repo='deb https://download.docker.com/linux/ubuntu bionic stable' state=present
+
+    - name: ensure docker and dependencies are installed
+      apt: name=docker-ce update_cache=yes
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Install Docker
+      package:
+        name: docker-ce
+        state: latest
+
+    - name: Install pip
+      package:
+        name: python3-pip
+        state: present
+        update_cache: true
+
+    - name: Install docker sdk
+      pip:
+        name: docker
+
+    - name: Add user ec2-user to docker group
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+   
+    - name: Install docker-compose from official github repo
+      remote_user: ansible
+      get_url:
+        url : https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: 'u+x,g+x'
+        force: yes
+      #become: True -try with this line. didnt try before
+
+    - name: Install Docker and Docker Compose v2
+      ansible.builtin.apt:
+        name:
+          - "docker-compose-plugin"
+        state: present
+
+    - name: Copy file with owner and permission, using symbolic representation
+      ansible.builtin.copy:
+        src: /home/ec2-user/ansible-compose/docker-compose.yml
+        dest: /home/ubuntu/
+        owner: ubuntu
+        group: ubuntu
+        mode: u=rwx,g=rwx,o=rwx
+
+    - name: Docker Chmod
+      ansible.builtin.shell:
+        cmd: chmod 666 /var/run/docker.sock
+      become: True
+
+    - name: Docker UserMod
+      ansible.builtin.shell:
+        cmd: chmod +x /usr/local/bin/docker-compose
+      become: True
+
+    - name: Docker Compose-up
+      ansible.builtin.shell:
+        cmd: docker-compose up -d
+    # - name: Install docker-compose
+    #   pip:
+    #     name: docker-compose
+    #     state: latest
+
+    # - name: Run mix deps.get and compile
+    #   shell: docker-compose run web mix do deps.get, compile
+    #   args:
+    #     chdir: /home/ec2-user/ansible-compose/docker-compose.yml
+    #   become: True # because you're using sudo
+
+    # - name: Running docker-composefile
+    #   docker_compose:
+    #     project_src: /home/ec2-user/ansible-compose/docker-compose.yml
+    #     state: present
